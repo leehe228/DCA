@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Hmm... Search Result</title>
+    <style>
+		body {
+			padding-left: 50px;
+			padding-right: 50px;
+			padding-top: 20px;
+		}
+		.body2 {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100px;
+        }
+        .block-container {
+            display: flex;
+            align-items: center;
+            background-color: #ffffff;
+			margin-top: 10px;
+            padding: 10px;
+        }
+        .warning {
+            display: flex;
+            align-items: center;
+            background-color: #ffffff;
+			margin-top: 10px;
+            height:auto;
+            padding: 10px;
+            font-size: 14px;
+            font-family: Arial, sans-serif;
+            color: #353535;
+        }
+        .title-url-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            font-family: Arial, sans-serif;
+        }
+        .title {
+            font-size: 16px;
+			font-family: Arial, sans-serif;
+            color: #252525;
+			font-weight: bold;
+            margin-bottom: 5px;
+        }
+		.subtitle {
+            font-size: 20px;
+            font-family: Arial, sans-serif;
+            margin-bottom: 60px;
+        }
+		.subtitle2 {
+            font-size: 16px;
+            font-family: Arial, sans-serif;
+            margin-bottom: 60px;
+        }
+		.main-title {
+			font-size: 30px;
+			font-weight: bold;
+			font-family: Arial, sans-serif;
+            text-decoration: none;
+            color: #000000;
+		}
+		.main-title2 {
+			font-size: 24px;
+			font-weight: bold;
+			font-family: Arial, sans-serif;
+		}
+        .url {
+            font-size: 14px;
+            color: #666;
+        }
+        .progress-container {
+            display: flex;
+            align-items: center;
+        }
+        .progress-bar {
+            width: 150px;
+            height: 10px;
+            border-radius: 5px;
+            background-color: #ddd;
+            margin-right: 5px;
+        }
+        .progress-fill {
+            height: 100%;
+            /* background-color: #db2020; */
+            border-radius: 5px;
+            
+        }
+		.space1 {
+			height: 60px;
+		}
+        .div1{width:200px;background:none;height:40px;display:inline-block}
+        .div2{width:200px;background:none;height:40px;display:inline-block}
+        .gap{width:200px;background:none;height:40px;display:inline-block;}
+        .progress-label {
+            font-size: 14px;
+			font-family: Arial, sans-serif;
+            color: #666;
+            margin-right: 5px;
+        }
+		.progress-label2 {
+            font-size: 18px;
+			font-weight: bolder;
+			font-family: Arial, sans-serif;
+            color: #666;
+            margin-right: 5px;
+        }
+		.search-container {
+            display: flex;
+			width: 100%;
+            align-items: center;
+        }
+        .search-input {
+            padding: 12px;
+            font-size: 16px;
+			font-family: Arial, sans-serif;
+			width:90%;
+            border: 1px solid #c9c9c9;
+            border-radius: 30px 30px 30px 30px;
+			box-shadow: 0 0 5px rgba(0, 0, 0, 0.3); 
+        }
+        .search-button {
+            padding: 10px;
+            font-size: 18px;
+            background-color: #000;
+            color: #fff;
+            border: none;
+            border-radius: 30px 30px 30px 30px;
+            cursor: pointer;
+			margin-left: 20px;
+        }
+    </style>
+</head>
+<body>
+	<a class="main-title" href="http://hmm-search.kro.kr:8000/" >HMMM</a> <br>
+    <a class="subtitle">HMMM.... 하고 바라보아요. </a> <br>
+	<a class="subtitle">세상 모든 정보를 </a> <br>
+	<a class="space1"></a>
+
+	<div class="body2">
+		<div class="search-container">
+			<input type="text" value="{{ keyword }}" onkeyup="enterkey();" class="search-input" id="search_field" placeholder="그 어떤 거짓 정보도 우리를 속일 수 없다." autofocus>
+			<button class="search-button" onclick="search()" style="cursor:pointer;">Search</button>
+		</div>
+	</div>
+
+	<a class="main-title2">Fact Check Report</a> <br>
+    <a class="subtitle2">팩트 체크 리포트</a> <br> <br>
+
+    <div class='div1'></div><div class='gap'></div><div class='div2'></div>
+
+    <div>
+    <a class="subtitle">팩트 체크가 필요한 정보와</a> <br>
+    <a class="subtitle" style="font-weight: bold;">유사한 내용 부터 먼저 확인해 보세요!</a>
+
+    <a class="warning">{{ data_warning }}</a>
+
+	{% for data in datas %}
+    <div class="block-container">
+        <div class="title-url-container">
+            <div class="title">{{ data.sentence }}</div>
+            <a href="{{ data.page_url }}" target="_blank" class="url">{{ data.page_url }}</a>
+        </div>
+        <div class="progress-container">
+			<div class="progress-label">유사도 </div>
+            <div class="progress-label2">{{ data.similarity }}%</div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ data.similarity }}%; background-color: {{ data.bar_color }}"></div>
+            </div>
+        </div>
+    </div>
+	{% endfor %}
+    </div>
+    <div class='div1'></div><div class='gap'></div><div class='div2'></div>
+    <div>
+        <a class="subtitle">팩트 체크가 필요한 정보와</a> <br>
+        <a class="subtitle" style="font-weight: bold;">반대 시각의 정보도 함께 확인해보세요!</a>
+
+        <a class="warning">{{ con_data_warning }}</a>
+
+        {% for c_data in con_datas %}
+        <div class="block-container">
+            <div class="title-url-container">
+                <div class="title">{{ c_data.sentence }}</div>
+                <a href="{{ c_data.page_url }}" target="_blank" class="url">{{ c_data.page_url }}</a>
+            </div>
+            <div class="progress-container">
+                <div class="progress-label">유사도 </div>
+                <div class="progress-label2">{{ c_data.similarity }}%</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: {{ c_data.similarity }}%; background-color: {{ c_data.bar_color }}"></div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+</body>
+
+<script type="text/javascript">
+
+var keyword
+function search() {
+    keyword = document.getElementById("search_field").value;
+    window.location.href = "http://hmm-search.kro.kr:8000/search?keyword=" + keyword;
+}
+
+function enterkey() {
+    if (window.event.keyCode == 13) {
+        keyword = document.getElementById("search_field").value;
+        window.location.href = "http://hmm-search.kro.kr:8000/search?keyword=" + keyword;
+    }
+}
+
+</script>
+
+
+</html>
