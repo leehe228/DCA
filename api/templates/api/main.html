@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Result</title>
+    <title>Hmm... Search Result</title>
     <style>
 		body {
 			padding-left: 50px;
@@ -20,7 +20,17 @@
             background-color: #ffffff;
 			margin-top: 10px;
             padding: 10px;
-            
+        }
+        .warning {
+            display: flex;
+            align-items: center;
+            background-color: #ffffff;
+			margin-top: 10px;
+            height:auto;
+            padding: 10px;
+            font-size: 14px;
+            font-family: Arial, sans-serif;
+            color: #353535;
         }
         .title-url-container {
             flex: 1;
@@ -29,13 +39,14 @@
             font-family: Arial, sans-serif;
         }
         .title {
-            font-size: 20px;
+            font-size: 16px;
 			font-family: Arial, sans-serif;
+            color: #252525;
 			font-weight: bold;
             margin-bottom: 5px;
         }
 		.subtitle {
-            font-size: 16px;
+            font-size: 20px;
             font-family: Arial, sans-serif;
             margin-bottom: 60px;
         }
@@ -80,6 +91,9 @@
 		.space1 {
 			height: 60px;
 		}
+        .div1{width:200px;background:none;height:40px;display:inline-block}
+        .div2{width:200px;background:none;height:40px;display:inline-block}
+        .gap{width:200px;background:none;height:40px;display:inline-block;}
         .progress-label {
             font-size: 14px;
 			font-family: Arial, sans-serif;
@@ -122,16 +136,15 @@
 <body>
 	<a class="main-title" href="http://hmm-search.kro.kr:8000/" >HMMM</a> <br>
     <a class="subtitle">HMMM.... 하고 바라보아요. </a> <br>
-	<a class="subtitle2">세상 모든 정보를 </a> <br>
+	<a class="subtitle">세상 모든 정보를 </a> <br>
 	<a class="space1"></a>
 
 	<div class="body2">
 		<div class="search-container">
-			<input type="text" onkeyup="enterkey();" class="search-input" id="search_field" placeholder="그 어떤 거짓 정보도 우리를 속일 수 없다." autofocus>
+			<input type="text" value="" onkeyup="enterkey();" class="search-input" id="search_field" placeholder="그 어떤 거짓 정보도 우리를 속일 수 없다." autofocus>
 			<button class="search-button" onclick="search()" style="cursor:pointer;">Search</button>
 		</div>
 	</div>
-
 
 </body>
 
