@@ -57,8 +57,8 @@ def search(request):
     
     datas = list()
     con_datas = list()
-    data_warning = ""
-    con_data_warning = ""
+    data_warning = "검색 결과가 없습니다."
+    con_data_warning = "검색 결과가 없습니다."
 
     if flag >= 0:
 
@@ -91,10 +91,10 @@ def search(request):
         
         print("num of pros:", len(datas), " / num of cons:", len(con_datas))
 
-        if len(datas) == 0:
-            data_warning = "검색 결과가 없습니다."
-        if len(con_datas) == 0:
-            con_data_warning = "검색 결과가 없습니다."
+    if len(datas) > 0:
+        data_warning = ""
+    if len(con_datas) > 0:
+        con_data_warning = ""
 
     return render(request, 'api/search.html', {'datas':datas, 'data_warning':data_warning, 'con_datas':con_datas, 'con_data_warning':con_data_warning, 'keyword':keyword})
 
