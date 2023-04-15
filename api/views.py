@@ -28,31 +28,61 @@ class Searching(object):
         return {'sentence':self.sentence, 'similarity':self.similarity, 'page_url':self.page_url, 'bar_color':self.color}
 
 
+import googletrans
+
+translator = googletrans.Translator()
+
+def trans(sentence, dest):
+    return translator.translate(sentence, dest=dest).text
+
+
+from nltk.tag import pos_tag
+from nltk.tokenize import word_tokenize
+
+def convert2negation(sentence):
+    tagged = pos_tag(word_tokenize(sentence)) 
+    
+    tokenized = word_tokenize(sentence)
+    
+    for i, (word, tag) in enumerate(tagged[::-1]):
+        if "VB" in tag:
+            tokenized[len(tagged) - i - 1] = f"not {tokenized[len(tagged) - i - 1]}"
+            break
+
+    negation = " ".join(tokenized)
+    
+    return negation
+
+
+from langdetect import detect
+
 @csrf_exempt
 def search(request):
-    keyword = request.GET['keyword'].strip()
+    keyword = parse.unquote(request.GET['keyword'].strip())
 
-    print("KEYWORD:", parse.unquote(keyword))
+    print("KEYWORD:", keyword)
 
-    # "dokdo is korean territory"
-    if "dokdo" in keyword:
-        flag = 0
-        proposition = "dokdo is korean territory"
-        negation = "takeshima is japanese territory"
-    
-    # "drinking alcohol is bad for memory"
-    elif "memory" in keyword:
-        flag = 1
-        proposition = "drinking alcohol is bad for memory"
-        negation = "drinking alcohol is good for memory"
+    try:
+        if detect(keyword) == 'ko':
+            proposition = trans(keyword, 'en')
+            neg = convert2negation(proposition)
+            negation = trans(trans(neg, 'ko'), 'en')
+            flag = 0
 
-    # "air quality in korea is bad"
-    elif "air" in keyword:
-        flag = 2
-        proposition = "air quality in korea is bad"
-        negation = "air quality in korea is good"
-    
-    else:
+        elif detect(keyword) == 'en':
+            proposition = keyword
+            neg = convert2negation(proposition)
+            negation = trans(trans(neg, 'ko'), 'en')
+            flag = 0
+
+        else:
+            flag = -1
+
+        print("proposition :", proposition)
+        print("negation :", negation)
+        
+    except Exception as e:
+        print(e)
         flag = -1
     
     datas = list()
@@ -60,15 +90,11 @@ def search(request):
     data_warning = "검색 결과가 없습니다."
     con_data_warning = "검색 결과가 없습니다."
 
-    if flag >= 0:
+    if flag > -1:
 
-        print("negation is :", negation)
+        page_url_list = search_google(proposition, negation)
 
-        # proposition = keyword
-
-        page_url_list = search_google(proposition, negation, flag)
-
-        article_list = sumy(page_url_list)
+        article_list = sumy(page_url_list, count=10)
 
         summary_list = summarize(article_list)
 
@@ -88,8 +114,8 @@ def search(request):
         for cons_dict in cons_list:
             s2 = Searching(cons_dict['sentence'], cons_dict['page_url'], -int(cons_dict['similarity'] * 100))
             con_datas.append(s2)
-        
-        print("num of pros:", len(datas), " / num of cons:", len(con_datas))
+    
+    print("num of pros:", len(datas), " / num of cons:", len(con_datas))
 
     if len(datas) > 0:
         data_warning = ""
@@ -102,106 +128,68 @@ def search(request):
 def home(request):
     return render(request, 'api/main.html', {})
 
+import requests 
+import lxml
+from bs4 import BeautifulSoup as bs
 
-def search_google(proposition, negation, flag) -> list:
-    search_prop_url = "https://www.google.com/search?q=" + parse.quote(proposition)
-    search_negn_url = "https://www.google.com/search?q=" + parse.quote(negation)
-    print("search proposition url :", search_prop_url)
-    print("search negation url :", search_negn_url)
-    print("Searching on Google News...")
 
-    sleep(3)
+def search_google(proposition, negation) -> list:
+    pros_params1 = {'q' : proposition , 'hl' : 'ko', 'tbm' : 'nws', 'start' : '0'}
+    pros_params2 = {'q' : proposition , 'hl' : 'ko', 'tbm' : 'nws', 'start' : '10'}
+    cons_params1 = {'q' : negation , 'hl' : 'ko', 'tbm' : 'nws', 'start' : '0'}
+    cons_params2 = {'q' : negation , 'hl' : 'ko', 'tbm' : 'nws', 'start' : '10'}
+    
+    pros_params_list = [pros_params1, pros_params2]
+    cons_params_list = [cons_params1, cons_params2]
+    
+    pros_page_url_list = []
+    cons_page_url_list = []
 
-    if flag == 0:
+    header = {'user-agent': 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.135 Safari/537.36'} 
+    cookie = {'CONSENT' : 'YES'}
+    url = 'https://www.google.com/search?'
+    
+    n = 0
+    
+    for params in pros_params_list:
+        res = requests.get(url, params = params, headers = header, cookies = cookie)
+        soup = bs(res.text, 'lxml')
 
-        prop_page_url_set = {
-            "https://en.yna.co.kr/view/AEN20230222006700325",
-            "https://koreajoongangdaily.joins.com/2022/12/18/national/diplomacy/Korea-Japan-national-security-strategy/20221218173522005.html",
-            "https://asianews.network/dokdo-still-unresolved-as-urgency-mounts/",
-            "https://www.asahi.com/ajw/articles/14762186",
-            "https://www.korea.net/Government/Current-Affairs/National-Affairs?affairId=83",
-            "https://www.lowyinstitute.org/the-interpreter/islands-ire-south-korea-japan-dispute",
-            "https://www.nationalgeographic.com/travel/article/history-dispute-photos-dodko-rocks-islands",
-            "https://japan-forward.com/editorial-japanese-government-must-show-enough-resolve-to-recover-takeshima/",
-            "https://koreajoongangdaily.joins.com/2022/10/13/opinion/columns/light-aircraft-carrier-Korea-Japan/20221013194956483.html",
-            "https://www.telesurenglish.net/news/South-Korea-Exercises-Military-Drills-Near-the-Dokdo-Islands-20220729-0019.html"
-        }
+        l1 = soup.find_all('div', 'mCBkyc ynAwRc MBeuO nDgy9d')
+        l2 = soup.find_all('a', 'WlydOe')
+        
+        for i, j in zip(l1, l2):
+            # print(i.get_text())
+            print("URL ", n, "\n", j.get('href'))
+            pros_page_url_list.append((n, j.get('href')))
+            n += 1
+    
+    n = 0
+    
+    for params in cons_params_list:
+        res = requests.get(url, params = params, headers = header, cookies = cookie)
+        soup = bs(res.text, 'lxml')
 
-        negn_page_url_set = {
-            "https://japan-forward.com/u-s-air-force-charts-confirm-takeshima-is-japanese-territory/",
-            "https://www.japantimes.co.jp/news/2023/02/19/national/politics-diplomacy/japanese-interested-takeshima-islets/",
-            "https://www.asahi.com/ajw/articles/14762186",
-            "https://japannews.yomiuri.co.jp/editorial/yomiuri-editorial/20230222-92787/",
-            "https://thediplomat.com/2021/06/south-korea-erupts-in-outrage-over-tokyo-olympics-map/",
-            "https://www.lowyinstitute.org/the-interpreter/islands-ire-south-korea-japan-dispute",
-            "https://www.nationalgeographic.com/travel/article/history-dispute-photos-dodko-rocks-islands",
-            "https://www.dw.com/en/156-year-old-map-may-reignite-japan-south-korea-island-dispute/a-39966162",
-            "https://mainichi.jp/english/articles/20230222/p2g/00m/0na/051000c",
-            "https://www.scmp.com/week-asia/politics/article/3179989/seoul-mission-how-marine-survey-disputed-waters-affecting-south"
-        }
+        l1 = soup.find_all('div', 'mCBkyc ynAwRc MBeuO nDgy9d')
+        l2 = soup.find_all('a', 'WlydOe')
 
-    elif flag == 1:
-        prop_page_url_set = {
-            "https://www.newsweek.com/tried-tested-quit-alcohol-dry-january-drinking-memory-1778085",
-            "https://www.psypost.org/2022/09/a-moderate-dose-of-alcohol-impairs-the-ability-to-imagine-a-possible-future-situation-63917",
-            "https://www.discovermagazine.com/health/this-is-your-brain-off-alcohol",
-            "https://www.theatlantic.com/health/archive/2017/12/even-small-amounts-of-alcohol-impair-memory/548474/",
-            "https://edition.cnn.com/2021/05/19/health/alcohol-brain-health-intl-scli-wellness/index.html",
-            "https://www.health.harvard.edu/blog/this-is-your-brain-on-alcohol-2017071412000",
-            "https://www.newsweek.com/what-binge-drinking-does-brain-1769310",
-            "https://www.theguardian.com/society/2021/may/18/any-amount-of-alcohol-consumption-harmful-to-the-brain-finds-study",
-            "https://www.ajc.com/news/world/want-improve-your-memory-have-drink-after-studying/QyOirxDIehvlWrdtOvB19I/",
-            "https://www.usatoday.com/story/news/health/2022/03/09/beer-glass-wine-daily-brain-shrink/9425508002/"
-        }
-
-        negn_page_url_set = {
-            "https://health.clevelandclinic.org/brownout-vs-blackout/",
-            "https://www.eatingwell.com/article/8035262/how-does-alcohol-affect-your-brain-health/",
-            "https://journals.plos.org/plosmedicine/article?id=10.1371/journal.pmed.1004039",
-            "https://www.discovermagazine.com/health/this-is-how-alcohol-affects-the-brain",
-            "https://www.washingtonpost.com/wellness/2022/12/29/alcohol-tipsy-brain-social-impacts/",
-            "https://scitechdaily.com/even-moderate-drinking-found-to-be-linked-to-brain-changes-and-cognitive-decline/",
-            "https://www.medicalnewstoday.com/articles/drinking-just-3-cans-of-beer-a-week-may-be-linked-to-cognitive-decline",
-            "https://www.theguardian.com/science/2022/aug/17/stop-drinking-keep-reading-look-after-your-hearing-a-neurologists-tips-for-fighting-memory-loss-and-alzheimers",
-            "https://www.yahoo.com/lifestyle/drinking-habits-age-brain-faster-233751840.html",
-            "https://www.irishexaminer.com/lifestyle/healthandwellbeing/arid-41046992.html"
-        }
-
-    elif flag == 2:
-
-        prop_page_url_set = {
-            "https://en.yna.co.kr/view/AEN20230323002800315",
-            "https://koreajoongangdaily.joins.com/2023/03/23/national/socialAffairs/korea-dust-fine-dust/20230323183056909.html",
-            "https://www.koreatimes.co.kr/www/nation/2023/01/371_343155.html",
-            "https://www.scientificamerican.com/article/what-air-pollution-in-south-korea-can-teach-the-world-about-misinformation/",
-            "https://koreajoongangdaily.joins.com/2023/01/08/national/socialAffairs/korea-dust-fine-dust/20230108181438507.html",
-            "https://www.bbc.com/news/world-asia-48346344",
-            "https://www.koreatimes.co.kr/www/nation/2023/01/113_343267.html",
-            "https://www.stripes.com/theaters/asia_pacific/army-allows-soldiers-to-wear-masks-while-in-uniform-when-air-quality-is-poor-in-s-korea-1.575182",
-            "https://www.voanews.com/a/south-korea-air-pollution/4764898.html",
-            "https://en.yna.co.kr/view/AEN20190306009751325"
-        }
-
-        negn_page_url_set = {
-            "https://en.yna.co.kr/view/AEN20230323002800315",
-            "https://koreajoongangdaily.joins.com/2023/03/23/national/socialAffairs/korea-dust-fine-dust/20230323183056909.html",
-            "https://www.koreatimes.co.kr/www/nation/2023/01/371_343155.html",
-            "https://www.scientificamerican.com/article/what-air-pollution-in-south-korea-can-teach-the-world-about-misinformation/",
-            "https://koreajoongangdaily.joins.com/2023/01/08/national/socialAffairs/korea-dust-fine-dust/20230108181438507.html",
-            "https://www.straitstimes.com/asia/east-asia/sandstorms-dangerous-pollution-return-to-beijing",
-            "https://phys.org/news/2023-02-china-pollution-policies-air-quality.html",
-            "https://en.yna.co.kr/view/AEN20221201009800325",
-            "https://www.koreatimes.co.kr/www/nation/2023/01/113_343267.html",
-            "https://www.bbc.com/news/world-asia-48346344"
-        }
-
-    page_url_list = list(prop_page_url_set | negn_page_url_set)
-
-    for i, url in enumerate(page_url_list):
-        print(f"url #{i + 1}\n{url}")
-        sleep(1)
-
-    return page_url_list
+        for i, j in zip(l1, l2):
+            # print(i.get_text())
+            print("URL ", n, "\n", j.get('href'))
+            
+            if j.get('href') in pros_page_url_list:
+                pass
+            else:
+                cons_page_url_list.append((n, j.get('href')))
+                n += 1
+                
+    print("pros :", len(pros_page_url_list), ", cons :", len(cons_page_url_list))
+    
+    url_list = pros_page_url_list + cons_page_url_list
+    url_list.sort(key=lambda x : x[0])
+    url_list = list(map(lambda x : x[1], url_list))
+    
+    return url_list
 
 
 from sumy.parsers.html import HtmlParser
@@ -211,26 +199,34 @@ from sumy.summarizers.lsa import LsaSummarizer as Summarizer
 from sumy.nlp.stemmers import Stemmer
 from sumy.utils import get_stop_words
 
-def sumy(page_url_list):
+def sumy(page_url_list,  count):
     LANGUAGE = "english"
-    SENTENCES_COUNT = 10
+    SENTENCES_COUNT = 5
     article_list = []
-    
+
     for url in page_url_list:
-        parser = HtmlParser.from_url(url, Tokenizer(LANGUAGE))
-        # or for plain text files
-        # parser = PlaintextParser.from_file("document.txt", Tokenizer(LANGUAGE))
-        # parser = PlaintextParser.from_string("Check this out.", Tokenizer(LANGUAGE))
-        stemmer = Stemmer(LANGUAGE)
-        
-        summarizer = Summarizer(stemmer)
-        summarizer.stop_words = get_stop_words(LANGUAGE)
-        
-        article = ""
-        for i, sentence in enumerate(summarizer(parser.document, SENTENCES_COUNT)):
-            article += str(sentence)
+        try:
+            parser = HtmlParser.from_url(url, Tokenizer(LANGUAGE))
+            # or for plain text files
+            # parser = PlaintextParser.from_file("document.txt", Tokenizer(LANGUAGE))
+            # parser = PlaintextParser.from_string("Check this out.", Tokenizer(LANGUAGE))
+            stemmer = Stemmer(LANGUAGE)
             
-        article_list.append(article)
+            summarizer = Summarizer(stemmer)
+            summarizer.stop_words = get_stop_words(LANGUAGE)
+            
+            article = ""
+            for i, sentence in enumerate(summarizer(parser.document, SENTENCES_COUNT)):
+                article += str(sentence)
+            
+            if len(article.strip()) > 0:
+                article_list.append(article)
+
+        except Exception as e:
+            print(e)
+
+        if len(article_list) >= count:
+            break
         
     print(len(article_list), "articles collected from Google News.")
 
