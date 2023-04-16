@@ -60,26 +60,29 @@ from langdetect import detect
 def search(request):
     keyword = parse.unquote(request.GET['keyword'].strip())
 
-    print("KEYWORD:", keyword)
+    print("KEYWORD:", keyword, detect(keyword))
 
     try:
         if detect(keyword) == 'ko':
             proposition = trans(keyword, 'en')
             neg = convert2negation(proposition)
             negation = trans(trans(neg, 'ko'), 'en')
-            flag = 0
 
-        elif detect(keyword) == 'en':
-            proposition = keyword
-            neg = convert2negation(proposition)
-            negation = trans(trans(neg, 'ko'), 'en')
+            print("proposition :", proposition)
+            print("negation :", negation)
+
             flag = 0
 
         else:
-            flag = -1
+            proposition = keyword
+            neg = convert2negation(proposition)
+            negation = trans(trans(neg, 'ko'), 'en')
 
-        print("proposition :", proposition)
-        print("negation :", negation)
+            print("proposition :", proposition)
+            print("negation :", negation)
+
+            flag = 0
+
         
     except Exception as e:
         print(e)
@@ -96,7 +99,7 @@ def search(request):
 
         article_list = sumy(page_url_list, count=10)
 
-        summary_list = summarize(article_list)
+        summary_list = summarize(article_list, count=10)
 
         similarity_list = evaluate_similarity(proposition, negation, page_url_list, summary_list)
         similarity_list = categorize_by_threshold(similarity_list, .6)
@@ -108,11 +111,11 @@ def search(request):
 
         for pros_dict in pros_list:
 
-            s = Searching(pros_dict['sentence'], pros_dict['page_url'], int(pros_dict['similarity'] * 100))
+            s = Searching(trans(pros_dict['sentence'], dest='ko'), pros_dict['page_url'], int(pros_dict['similarity'] * 100))
             datas.append(s)
         
         for cons_dict in cons_list:
-            s2 = Searching(cons_dict['sentence'], cons_dict['page_url'], -int(cons_dict['similarity'] * 100))
+            s2 = Searching(trans(cons_dict['sentence'], dest='ko'), cons_dict['page_url'], -int(cons_dict['similarity'] * 100))
             con_datas.append(s2)
     
     print("num of pros:", len(datas), " / num of cons:", len(con_datas))
@@ -134,10 +137,15 @@ from bs4 import BeautifulSoup as bs
 
 
 def search_google(proposition, negation) -> list:
-    pros_params1 = {'q' : proposition , 'hl' : 'ko', 'tbm' : 'nws', 'start' : '0'}
-    pros_params2 = {'q' : proposition , 'hl' : 'ko', 'tbm' : 'nws', 'start' : '10'}
-    cons_params1 = {'q' : negation , 'hl' : 'ko', 'tbm' : 'nws', 'start' : '0'}
-    cons_params2 = {'q' : negation , 'hl' : 'ko', 'tbm' : 'nws', 'start' : '10'}
+    #pros_params1 = {'q' : proposition , 'hl' : 'ko', 'tbm' : 'nws', 'start' : '0'}
+    #pros_params2 = {'q' : proposition , 'hl' : 'ko', 'tbm' : 'nws', 'start' : '10'}
+    #cons_params1 = {'q' : negation , 'hl' : 'ko', 'tbm' : 'nws', 'start' : '0'}
+    #cons_params2 = {'q' : negation , 'hl' : 'ko', 'tbm' : 'nws', 'start' : '10'}
+
+    pros_params1 = {'q' : proposition , 'hl' : 'ko', 'start' : '0'}
+    pros_params2 = {'q' : proposition , 'hl' : 'ko', 'start' : '10'}
+    cons_params1 = {'q' : negation , 'hl' : 'ko', 'start' : '0'}
+    cons_params2 = {'q' : negation , 'hl' : 'ko', 'start' : '10'}
     
     pros_params_list = [pros_params1, pros_params2]
     cons_params_list = [cons_params1, cons_params2]
@@ -155,13 +163,19 @@ def search_google(proposition, negation) -> list:
         res = requests.get(url, params = params, headers = header, cookies = cookie)
         soup = bs(res.text, 'lxml')
 
-        l1 = soup.find_all('div', 'mCBkyc ynAwRc MBeuO nDgy9d')
-        l2 = soup.find_all('a', 'WlydOe')
+        # l1 = soup.find_all('div', 'mCBkyc ynAwRc MBeuO nDgy9d')
+        # l2 = soup.find_all('a', 'WlydOe')
+        l1 = soup.select("div.yuRUbf > a")
         
-        for i, j in zip(l1, l2):
+        """for i, j in zip(l1, l2):
             # print(i.get_text())
             print("URL ", n, "\n", j.get('href'))
             pros_page_url_list.append((n, j.get('href')))
+            n += 1
+        """
+        for i in l1:
+            print("URL", n + 1, "\n", i.get("href"))
+            pros_page_url_list.append((n, i.get('href')))
             n += 1
     
     n = 0
@@ -170,10 +184,11 @@ def search_google(proposition, negation) -> list:
         res = requests.get(url, params = params, headers = header, cookies = cookie)
         soup = bs(res.text, 'lxml')
 
-        l1 = soup.find_all('div', 'mCBkyc ynAwRc MBeuO nDgy9d')
-        l2 = soup.find_all('a', 'WlydOe')
+        # l1 = soup.find_all('div', 'mCBkyc ynAwRc MBeuO nDgy9d')
+        # l2 = soup.find_all('a', 'WlydOe')
+        l1 = soup.select("div.yuRUbf > a")
 
-        for i, j in zip(l1, l2):
+        """for i, j in zip(l1, l2):
             # print(i.get_text())
             print("URL ", n, "\n", j.get('href'))
             
@@ -182,6 +197,15 @@ def search_google(proposition, negation) -> list:
             else:
                 cons_page_url_list.append((n, j.get('href')))
                 n += 1
+        """
+        for i in l1:
+            if i.get('href') in pros_page_url_list:
+                pass
+            else:
+                print("URL", n + 1, "\n", i.get("href"))
+                cons_page_url_list.append((n, i.get('href')))
+            
+            n += 1
                 
     print("pros :", len(pros_page_url_list), ", cons :", len(cons_page_url_list))
     
@@ -204,7 +228,10 @@ def sumy(page_url_list,  count):
     SENTENCES_COUNT = 5
     article_list = []
 
-    for url in page_url_list:
+    print("collecting articles from server...")
+
+    for n, url in enumerate(page_url_list):
+        print("collect", n + 1, "th article")
         try:
             parser = HtmlParser.from_url(url, Tokenizer(LANGUAGE))
             # or for plain text files
@@ -244,16 +271,20 @@ def count_token(article):
 
 summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
 
-def summarize(article_list):
+def summarize(article_list, count):
     summary_list = []
 
     for i, article in enumerate(article_list):
         print(f"summary #{i + 1}")
         num_token = count_token(article)
-        summ = summarizer(article, max_length=num_token // 2, min_length=num_token // 5, do_sample=False)
-        summary_list.append(summ[0]['summary_text'])
-        print(summ[0]['summary_text'])
-        print()
+        try:
+            summ = summarizer(article, max_length=num_token // 2, min_length=num_token // 5, do_sample=False)
+            summary_list.append(summ[0]['summary_text'])
+            print(summ[0]['summary_text'])
+            print()
+        except Exception as e:
+            print(e)
+            print(f"summary #{i + 1} passed because of an error.")
                           
     print(len(summary_list), "article summarized.")
 
